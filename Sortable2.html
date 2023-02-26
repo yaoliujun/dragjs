@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src='https://code.jquery.com/jquery-3.2.1.min.js'></script>
+
+    <title>DragPair222</title>
+</head>
+<style>
+
+    .drag-content {
+        display: flex;
+        width: 100%;
+    }
+
+    .drag-list {
+        width: 100%;
+        position: relative;
+        background: gainsboro;
+        border: 1px solid green;
+        border-radius: 5px;
+        margin: 5px 5px;
+    }
+
+    .drag-list .remove-item-button {
+        position: absolute;
+        right: 5px;
+        top: 3px;
+        cursor: pointer;
+        color: red;
+    }
+</style>
+
+<body>
+    <div class="com-mark-pq-content">
+    </div>
+
+
+
+</body>
+
+<script>
+    let answerList = [
+        {
+            id: 1, sort: 1, children: [
+                { id: 1.1, title: '回复1-1', value: '内容1-1', sort: 1.1 },
+                { id: 1.2, title: '回复1-2', value: '内容1-2', sort: 1.2 },
+            ]
+        },
+        {
+            id: 2, sort: 2, children: [
+                { id: 2.1, title: '回复2', value: '内容2', sort: 2.1 }
+            ]
+        },
+        {
+            id: 3, sort: 3, children: [
+                { id: 3.1, title: '回复3', value: '内容3', sort: 3.1 }]
+        }];
+    const dragBox = $('.com-mark-pq-content');
+    resetDom(dragBox[0], answerList)
+    var currentId = 0;
+    var targetId = 0;
+
+    // 渲染显示
+    function resetDom(rootNode, domTreeArray) {
+        $(rootNode).children().remove();
+        answerList = domTreeArray.sort((item1, item2) => item1.sort - item2.sort);
+        if (domTreeArray.length) {
+            for (let i = 0; i < domTreeArray.length; i++) {
+                let contentNode = document.createElement("div");
+                $(contentNode).addClass('drag-content');
+                $(contentNode).attr("id", domTreeArray[i].id);
+                $(contentNode).attr("sort", domTreeArray[i].sort);
+                $(contentNode).attr("draggable", true);
+                toBeDrag(contentNode)
+                const domTreeChildren = domTreeArray[i].children;
+                if (domTreeChildren.length) {
+                    for (let j = 0; j < domTreeChildren.length; j++) {
+                        let newNode = document.createElement("div");
+                        $(newNode).addClass('drag-list');
+                        $(newNode).attr("id", domTreeChildren[j].id);
+                        $(newNode).attr("sort", domTreeChildren[j].sort);
+                        $(newNode).attr("draggable", true);
+                        $(newNode).html(`<input type="checkbox" name="mergeSort" value=${domTreeChildren[j].sort} >${domTreeArray[i].sort}
+                        <span class="remove-item-button">x</span>
+                        <div style="color:#ff0000;">${domTreeChildren[j].title}</div><div class="md">${domTreeChildren[j].value}</div>`);
+                        toBeDrag(newNode)
+                        $(contentNode).append(newNode);
+                    }
+                }
+                $(rootNode).append(contentNode);
+
+
+            }
+            let mergeButton = $(`<button>合并</button>`);
+            $(mergeButton).on('click', mergeItem);
+            $(rootNode).append(mergeButton);
+        }
+    }
+
+    // 处理成可拖拽元素
+    function toBeDrag(curNode) {
+        curNode.addEventListener('dragstart', dragstart)
+        curNode.addEventListener('dragend', dragend)
+        curNode.addEventListener('dragenter', dragenter)
+        //  绑定解耦函数
+        const btn = $(curNode).find('.remove-item-button')[0]
+        $(btn).on('click', resolveItem)
+    }
+
+    function dragstart(event) {
+        event.stopPropagation()
+        event.dataTransfer.setData("text/plain", event.target.getAttribute('sort'));
+        event.dataTransfer.dropEffect = "move";
+        currentSort = event.target.getAttribute('sort');
+    }
+
+    function dragenter(event) {
+        event.stopPropagation()
+        const targetNode = $(event.target).parent('.drag-list')[0];
+        if (targetNode) {
+            targetSort = targetNode.getAttribute('sort');
+        }
+
+    }
+
+    function dragend(event) {
+        event.stopPropagation()
+        console.log(currentSort, targetSort)
+        replaceIndexData(currentSort, targetSort)
+    }
+
+
+    //交换数据位置
+    function replaceIndexData(currentSort, targetSort) {
+        let currentIndex = 0;
+        let targetIndex = 0;
+        // if (currentSort && targetSort) {
+        let currentSortArr = currentSort.split('.');
+        let targetSortArr = targetSort.split('.');
+        if (currentSortArr.length > 1 && targetSortArr.length > 1) {
+            const currentData = answerList[currentSortArr[0] - 1].children[currentSortArr[1] - 1];
+            const targetData = answerList[targetSortArr[0] - 1].children[targetSortArr[1] - 1];
+            const stath = JSON.parse(JSON.stringify(currentData));
+            changeValue(targetData, currentData);
+            changeValue(stath, targetData);
+            resetDom(dragBox[0], answerList)
+        }
+        // }
+    }
+
+    // 对象交换值
+    function changeValue(currentObj, targetObj) {
+        let keys = Object.keys(currentObj);
+        for (let i = 0; i < keys.length; i++) {
+            if (keys[i] != 'sort') {
+                targetObj[keys[i]] = currentObj[keys[i]]
+            }
+        }
+    }
+
+    // 合并多项
+    function mergeItem() {
+        const mergeList = []
+        $("input:checkbox[name='mergeSort']:checked").each(function () {
+            mergeList.push($(this).val());
+        });
+        if (mergeList.length > 1) {
+            const appendDataList = []
+            for (let i = 1; i < mergeList.length; i++) {
+                const mergeListArr = mergeList[i].split('.');
+                const data = answerList[mergeListArr[0] - 1].children[mergeListArr[1] - 1];
+                appendDataList.push(JSON.parse(JSON.stringify(data)));
+                answerList[mergeListArr[0] - 1].children.splice([mergeListArr[1] - 1], 1);
+            }
+            const headIndexArr = mergeList[0].split('.');
+            const targetDataList = answerList[headIndexArr[0] - 1].children;
+            const headDataIndex = headIndexArr[1] - 1;
+            targetDataList.splice(headDataIndex + 1, 0, ...appendDataList);
+            initSortTree()
+            resetDom(dragBox[0], answerList);
+        }
+    }
+
+    // 解耦数据
+    function resolveItem(event) {
+        const sort = $(event.target).parents('.drag-list')[0].getAttribute('sort')
+        const currentSortArr = sort.split('.');
+        const firstIndex = currentSortArr[0] - 1;
+        const secondIndex = currentSortArr[1] - 1;
+        if (answerList[firstIndex].children.length > 1) {
+            const data = JSON.parse(JSON.stringify(answerList[firstIndex].children[secondIndex]))
+            answerList[firstIndex].children.splice(secondIndex, 1)
+            answerList.splice(firstIndex + 1, 0, {
+                id: answerList.length + 1, sort: 2, children: [data]
+            });
+            initSortTree();
+            resetDom(dragBox[0], answerList);
+        }
+    }
+
+    // 当合并或者解耦之后把数据组捋顺
+    function initSortTree() {
+        if (answerList.length) {
+            for (let i = 0; i < answerList.length; i++) {
+                if (!answerList[i].children.length) {
+                    answerList.splice(i, 1);
+                }
+                if (answerList[i]) {
+                    answerList[i].sort = i - 0 + 1;
+                    const children = answerList[i].children;
+                    if (answerList[i].children.length) {
+                        for (let j = 0; j < children.length; j++) {
+                            children[j].sort = `${i + 1}.${j + 1}` - 0;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+
+</script>
+
+</html>
